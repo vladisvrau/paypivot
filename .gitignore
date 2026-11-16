@@ -1,0 +1,8 @@
+# Local tooling
+.claude/
+
+# OS and editor files
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/

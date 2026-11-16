@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "PayPivot — Salary & Currency Converter",
+  "short_name": "PayPivot",
+  "version": "1.0.0",
+  "description": "Convert a salary between hourly, daily, weekly, monthly and yearly, and between currencies.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "PayPivot"
+  },
+  "permissions": ["storage"],
+  "host_permissions": ["https://api.frankfurter.dev/*"]
+}
