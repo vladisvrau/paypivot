@@ -52,3 +52,7 @@ See [SPEC.md](SPEC.md) for the full functional spec.
 | `popup.js` | All logic: parsing, maths, rates, table and animations |
 
 There is no build step and there are no dependencies.
+
+## Licence
+
+[MIT](LICENSE)
