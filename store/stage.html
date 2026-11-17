@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PayPivot store screenshot stage</title>
+<!-- Renders a 1280x800 store screenshot of the real popup. Open stage.html?shot=1 (2, 3) from a local server at the repository root. -->
+<style>
+  html, body { margin: 0; width: 1280px; height: 800px; overflow: hidden; }
+  body {
+    background: #F1EFE8; color: #2C2C2A;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  h1 { margin: 44px 0 6px; font-size: 44px; font-weight: 600; letter-spacing: -0.5px; }
+  p { margin: 0 0 28px; font-size: 21px; color: #5F5E5A; }
+  #frame {
+    background: #fff; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 18px 50px rgba(0,0,0,.16);
+  }
+  iframe { border: 0; display: block; transform-origin: 0 0; color-scheme: light; }
+</style>
+</head>
+<body>
+<h1 id="title"></h1>
+<p id="sub"></p>
+<div id="frame"><iframe id="popup" width="800" height="600"></iframe></div>
+<script>
+const base = {
+  codes: ['USD', 'EUR', 'BRL'], convert: true, transposed: false, collapsed: false,
+  pinned: ['hour', 'month', 'year'], hoursPerWeek: 40, daysPerWeek: 5, weeksPerYear: 52,
+  anchor: { period: 'hour', cur: 'USD', text: '50' },
+  rates: {}, manual: {}, ratesBase: '', rateDate: '', ratesFetchedAt: 0, names: null,
+};
+const shots = {
+  1: {
+    title: 'One pay figure, every pay period',
+    sub: 'Type an hourly rate, a monthly salary or a yearly package. The rest fills in.',
+    state: {},
+  },
+  2: {
+    title: 'Shape the table your way',
+    sub: 'Pin the periods you care about, collapse the rest, or flip rows and columns.',
+    state: {
+      codes: ['EUR', 'USD', 'GBP'], transposed: true, collapsed: true,
+      anchor: { period: 'year', cur: 'EUR', text: '90,000' },
+    },
+  },
+  3: {
+    title: 'Your hours, your numbers',
+    sub: 'Set your working week, and switch currencies off for a plain list.',
+    state: {
+      codes: ['USD', 'EUR'], convert: false, hoursPerWeek: 32, daysPerWeek: 4, weeksPerYear: 48,
+      anchor: { period: 'month', cur: 'USD', text: '6,500' },
+    },
+  },
+};
+const shot = shots[new URLSearchParams(location.search).get('shot')] || shots[1];
+document.getElementById('title').textContent = shot.title;
+document.getElementById('sub').textContent = shot.sub;
+localStorage.setItem('state2', JSON.stringify({ ...base, ...shot.state }));
+
+const frame = document.getElementById('frame');
+const popup = document.getElementById('popup');
+popup.src = '../popup.html';
+
+function fit() {
+  const body = popup.contentDocument && popup.contentDocument.body;
+  if (!body || !body.offsetWidth) return;
+  const w = body.offsetWidth, h = body.offsetHeight;
+  const scale = Math.min(1.7, 1160 / w, 570 / h);
+  popup.width = w; popup.height = h;
+  popup.style.transform = `scale(${scale})`;
+  frame.style.width = `${w * scale}px`;
+  frame.style.height = `${h * scale}px`;
+}
+setInterval(fit, 100);
+</script>
+</body>
+</html>
