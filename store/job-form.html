@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Apply — Senior Frontend Engineer</title>
+<!--
+  A fictional application form for store screenshot 5 (see stage.html). It runs the real page
+  helper (content/helper.js) with a stand-in for the chrome.* APIs that supplies a fictional profile.
+-->
+<style>
+  * { box-sizing: border-box; }
+  html { color-scheme: light; }
+  body { margin: 0; font: 15px/1.45 "Segoe UI", system-ui, sans-serif; color: #24262b; background: #fff; }
+  header { padding: 22px 48px 18px; border-bottom: 1px solid #ececec; display: flex; align-items: baseline; gap: 14px; }
+  header b { font-size: 18px; }
+  header span { color: #777; }
+  main { padding: 22px 48px; }
+  h1 { margin: 0 0 4px; font-size: 24px; }
+  .lead { margin: 0 0 20px; color: #666; }
+  form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 28px; max-width: 1000px; }
+  .full { grid-column: 1 / -1; }
+  label, .q { display: block; font-weight: 600; font-size: 14px; margin-bottom: 5px; }
+  input, select, textarea {
+    width: 100%; padding: 9px 11px; font: inherit; color: inherit;
+    border: 1px solid #cfd3da; border-radius: 6px; background: #fff;
+  }
+  textarea { height: 64px; resize: none; }
+  .drop {
+    position: relative; border: 1.5px dashed #b9bec7; border-radius: 6px; padding: 10px; text-align: center;
+    color: #666; font-size: 14px;
+  }
+  .drop input { position: absolute; inset: 0; opacity: 0; }
+</style>
+</head>
+<body>
+<header><b>Northwind</b><span>Careers</span></header>
+<main>
+  <h1>Senior Frontend Engineer</h1>
+  <p class="lead">Remote · Full time</p>
+  <form onsubmit="event.preventDefault()">
+    <div><label for="fn">First name</label><input id="fn" name="first_name" autocomplete="given-name"></div>
+    <div><label for="ln">Last name</label><input id="ln" name="last_name" autocomplete="family-name"></div>
+    <div><label for="em">Email</label><input id="em" type="email" name="email"></div>
+    <div><label for="ph">Phone</label><input id="ph" type="tel" name="phone"></div>
+    <div><label for="li">LinkedIn profile</label><input id="li" name="linkedin"></div>
+    <div><label for="sal">Salary expectations</label><input id="sal" name="salary"></div>
+    <div><div class="q">Résumé / CV</div><div class="drop">Drop a file here or click to upload<input id="cv" type="file" name="resume"></div></div>
+    <div><label for="why">Why are you interested in Northwind?</label><textarea id="why" name="why"></textarea></div>
+  </form>
+</main>
+<script>
+  // Stand-in for the extension APIs the page helper uses, with a fictional profile.
+  const data = {
+    profile: {
+      firstName: 'Sam', lastName: 'Rivera', email: 'sam.rivera@example.com', phone: '+351 912 345 678',
+      linkedin: 'https://linkedin.com/in/samrivera', salary: '€75,000 a year',
+    },
+    files: { items: [{ id: 'f1', label: 'Résumé — English', name: 'sam-rivera-resume.pdf', type: 'application/pdf', size: 184320 }], defaultId: 'f1' },
+  };
+  window.chrome = {
+    storage: {
+      local: { get: async (key) => ({ [key]: data[key] }), set: async () => {}, remove: async () => {} },
+      onChanged: { addListener() {} },
+    },
+    runtime: { sendMessage: async () => ({ error: 'missing' }) },
+  };
+</script>
+<script src="../shared/storage.js"></script>
+<script src="../content/helper.js"></script>
+</body>
+</html>

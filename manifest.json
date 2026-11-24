@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "PayPivot — Salary & Currency Converter",
+  "name": "PayPivot — Salary Converter & Job Application Helper",
   "short_name": "PayPivot",
   "version": "2.0.0",
   "description": "Convert salaries between pay periods and currencies, add up total compensation, and fill job applications faster.",

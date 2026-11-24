@@ -6,11 +6,11 @@ Text to paste into the Developer Dashboard. Images are in this folder.
 
 **Name** (taken from the manifest)
 
-PayPivot — Salary & Currency Converter
+PayPivot — Salary Converter & Job Application Helper
 
 **Summary** (taken from the manifest description, 132 characters max)
 
-Convert a salary between hourly, daily, weekly, monthly and yearly, and between currencies.
+Convert salaries between pay periods and currencies, add up total compensation, and fill job applications faster.
 
 **Category**
 
@@ -22,27 +22,32 @@ English
 
 **Description**
 
-PayPivot turns one pay figure into all the others. Type an hourly rate, a monthly salary or a yearly package, in any currency, and see the rest instantly.
+PayPivot is a small companion for job hunting. It turns any pay figure into every other, adds up what an offer is really worth, and keeps your details ready for application forms.
 
-It's built for reading job descriptions: "$50 an hour" and "€90k a year" become comparable in a couple of keystrokes.
+PAY
 
-WHAT IT DOES
-
-• Type anywhere. Hourly, daily, weekly, monthly and yearly are all inputs. The last one you typed in drives the rest.
-• Forgiving input. 50, $50.00, 120,000, 120k, 1.2m and 1.234,56 all work, so you can paste straight from a job post.
+• One figure, every period. Hourly, daily, weekly, monthly and yearly are all inputs. Type in any of them and the rest fill in.
+• Straight from the job post. Select "$120k – $150k a year" or "R$ 8.000 por mês" on any page, right-click and choose Convert with PayPivot. The amount, range, currency and pay period are read for you.
+• Currencies. Show up to four side by side, with daily European Central Bank reference rates you can override by hand, or switch conversion off for a plain list.
+• Total compensation. Add bonus, equity, sign-on, benefits, paid time off and costs to see the yearly total and the effective hourly rate of an offer.
 • Your working pattern. Set hours per week, days per week and weeks per year.
-• Currencies. Show up to four side by side, with daily European Central Bank reference rates you can override by hand.
-• No-conversion mode. Switch currencies off for a plain list of what your time is worth.
-• Shape the table. Pin the periods you care about and collapse the rest, or flip the table so periods run across and currencies run down.
-• Remembers everything. Your figure, currencies and layout are restored next time.
+• Shape the table. Pin the periods you care about and collapse the rest, or flip rows and columns.
+
+APPLY
+
+• Profile. Keep your name, contact details, links, current role, work authorisation and salary expectation in one place, each a click away from the clipboard. Pin the ones you use most.
+• Snippets. Save reusable answers like a short bio or "why I'm looking", and insert them into any text field from the right-click menu.
+• Résumés. Store several versions and pick a default.
+• Fill forms on the page (optional). Turn on "Help me on application pages" and PayPivot recognises fields such as name, email, LinkedIn, salary expectation and résumé upload. A small button on each fills it, or Fill all does the lot, with Undo. Nothing is filled until you click, forms are never submitted, and password and payment fields are never touched.
+• Backup. Export everything to one file and import it on another computer.
 
 PRIVACY
 
-Everything is stored locally in your browser. The only network request fetches exchange rates from the Frankfurter API, and it contains nothing but currency codes. With conversion switched off, no requests are made. No account, no tracking, no ads.
+Everything you enter stays in your browser. Your profile, snippets and résumés are never sent anywhere; they are only written into a page's form when you click one of PayPivot's buttons. The only network request fetches exchange rates from the Frankfurter API and contains nothing but currency codes. The page helper is off until you turn it on, and Chrome asks for your permission first. No account, no tracking, no ads.
 
 GOOD TO KNOW
 
-Figures are gross pay. Taxes and benefits are not included. Exchange rates are daily reference rates, not live market rates.
+Figures are gross pay; taxes are not included. Exchange rates are daily reference rates, not live market rates. Some application sites build their forms in unusual ways, so a field may not be recognised; copying from the Apply tab always works.
 
 PayPivot is open source: https://github.com/vladisvrau/paypivot
 
@@ -51,9 +56,11 @@ PayPivot is open source: https://github.com/vladisvrau/paypivot
 | Slot | File | Size |
 |---|---|---|
 | Store icon | `../icons/icon128.png` | 128×128 |
-| Screenshot 1 | `screenshot-1.png` | 1280×800 |
-| Screenshot 2 | `screenshot-2.png` | 1280×800 |
-| Screenshot 3 | `screenshot-3.png` | 1280×800 |
+| Screenshot 1 | `screenshot-1.png` (every pay period) | 1280×800 |
+| Screenshot 2 | `screenshot-2.png` (convert from a job post) | 1280×800 |
+| Screenshot 3 | `screenshot-3.png` (total compensation) | 1280×800 |
+| Screenshot 4 | `screenshot-4.png` (profile and snippets) | 1280×800 |
+| Screenshot 5 | `screenshot-5.png` (filling a form) | 1280×800 |
 | Small promo tile | `promo-tile-440x280.png` | 440×280 |
 
 **Homepage URL**
@@ -122,4 +129,4 @@ https://github.com/vladisvrau/paypivot#privacy
 
 ## Regenerating the images
 
-Serve the repository root locally, then capture `store/stage.html?shot=1` (2, 3) at 1280×800 and `store/promo.html` at 440×280, for example with headless Chrome's `--screenshot` flag.
+Serve the repository root locally, then capture `store/stage.html?shot=1` (2 to 5) at 1280×800 and `store/promo.html` at 440×280, for example with headless Chrome's `--screenshot` flag.
