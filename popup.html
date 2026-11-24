@@ -6,32 +6,145 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <h1>PayPivot</h1>
+  <header class="top">
+    <h1>PayPivot</h1>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button id="tab-pay" type="button" role="tab" aria-controls="view-pay">Pay</button>
+      <button id="tab-apply" type="button" role="tab" aria-controls="view-apply">Apply</button>
+    </nav>
+  </header>
 
-  <section class="toolbar">
-    <button id="flip" type="button" title="Swap rows and columns">Flip table</button>
-    <label class="check" title="Show amounts in other currencies">
-      <input id="convert" type="checkbox" role="switch"> Convert
-    </label>
-    <button id="refresh" type="button" title="Fetch the latest rates" aria-label="Fetch the latest rates">↻</button>
-  </section>
+  <!-- ---------- Pay ---------- -->
+  <div id="view-pay" role="tabpanel" aria-labelledby="tab-pay">
+    <p id="fromPage" class="from-page" data-key="from-page" hidden></p>
 
-  <section class="grid" id="grid"></section>
+    <section class="toolbar">
+      <button id="flip" type="button" title="Swap rows and columns">Flip table</button>
+      <label class="check" title="Show amounts in other currencies">
+        <input id="convert" class="switch" type="checkbox" role="switch"> Convert
+      </label>
+      <button id="refresh" type="button" title="Fetch the latest rates" aria-label="Fetch the latest rates">↻</button>
+    </section>
 
-  <p id="rateInfo" data-key="rate-info"></p>
+    <section class="grid" id="grid"></section>
 
-  <section class="settings" data-key="settings">
-    <label>Hours / week
-      <input id="hoursPerWeek" type="number" min="1" max="168" step="0.5">
-    </label>
-    <label>Days / week
-      <input id="daysPerWeek" type="number" min="1" max="7" step="0.5">
-    </label>
-    <label>Weeks / year
-      <input id="weeksPerYear" type="number" min="1" max="52" step="1">
-    </label>
-  </section>
+    <p id="rateInfo" data-key="rate-info"></p>
 
+    <section class="settings" data-key="settings">
+      <label>Hours / week
+        <input id="hoursPerWeek" type="number" min="1" max="168" step="0.5">
+      </label>
+      <label>Days / week
+        <input id="daysPerWeek" type="number" min="1" max="7" step="0.5">
+      </label>
+      <label>Weeks / year
+        <input id="weeksPerYear" type="number" min="1" max="52" step="1">
+      </label>
+    </section>
+
+    <details class="group comp" id="comp" data-key="comp">
+      <summary>Total compensation</summary>
+      <div class="comp-fields">
+        <label for="c-bonus">Bonus</label>
+        <span class="pair">
+          <input id="c-bonus" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+          <select id="c-bonusType" aria-label="Bonus type">
+            <option value="amount">per year</option>
+            <option value="percent">% of base</option>
+          </select>
+        </span>
+
+        <label for="c-equity">Equity grant</label>
+        <span class="pair">
+          <input id="c-equity" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+          <span>over</span>
+          <input id="c-vest" class="short" type="number" min="1" max="10" step="1" aria-label="Vesting years">
+          <span>years</span>
+        </span>
+
+        <label for="c-signon">Sign-on bonus</label>
+        <span class="pair">
+          <input id="c-signon" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+          <span>over</span>
+          <input id="c-signonYears" class="short" type="number" min="1" max="10" step="1" aria-label="Years to spread the sign-on bonus over">
+          <span>years</span>
+        </span>
+
+        <label for="c-benefits">Benefits</label>
+        <span class="pair">
+          <input id="c-benefits" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+          <span>per year</span>
+        </span>
+
+        <label for="c-pto">Paid time off</label>
+        <span class="pair">
+          <input id="c-pto" class="short" type="number" min="0" max="365" step="1" placeholder="0">
+          <span>days per year</span>
+        </span>
+
+        <label for="c-costs">Costs</label>
+        <span class="pair">
+          <input id="c-costs" type="text" inputmode="decimal" autocomplete="off" placeholder="0">
+          <span>per year</span>
+        </span>
+      </div>
+      <div class="comp-foot">
+        <span>Amounts in <select id="c-cur" aria-label="Currency of the amounts above"></select></span>
+        <button id="c-clear" type="button">Clear</button>
+      </div>
+      <div class="comp-out" id="compOut"></div>
+    </details>
+  </div>
+
+  <!-- ---------- Apply ---------- -->
+  <div id="view-apply" role="tabpanel" aria-labelledby="tab-apply" hidden>
+    <section class="helper">
+      <label class="check">
+        <input id="helperToggle" class="switch" type="checkbox" role="switch">
+        Help me on application pages
+      </label>
+      <p class="hint" id="helperHint"></p>
+    </section>
+
+    <details class="group" id="profileGroup">
+      <summary>Profile <button id="profileCollapse" class="summary-button" type="button">Collapse</button></summary>
+      <div id="profileFields" class="fields"></div>
+    </details>
+
+    <details class="group" id="snippetGroup">
+      <summary>Snippets</summary>
+      <p class="hint">Reusable answers. Copy them here, or right-click a field on a page and choose PayPivot → Insert snippet.</p>
+      <div id="snippetList" class="snippets"></div>
+      <button id="addSnippet" type="button" class="wide">+ Add snippet</button>
+    </details>
+
+    <details class="group" id="fileGroup">
+      <summary>Résumés</summary>
+      <div id="fileList" class="files"></div>
+      <button id="uploadFile" type="button" class="wide">Upload file</button>
+      <input id="fileInput" type="file" accept=".pdf,.doc,.docx" multiple hidden>
+      <p class="hint" id="fileHint">PDF, DOC or DOCX, up to 5 MB each. The selected one is used by default.</p>
+    </details>
+
+    <details class="group" id="backupGroup">
+      <summary>Backup</summary>
+      <p class="hint">Save your profile, snippets, résumés and settings to one file, or restore them from it.</p>
+      <div class="row">
+        <button id="exportData" type="button">Export</button>
+        <button id="importData" type="button">Import…</button>
+        <button id="importConfirm" type="button" class="danger" hidden>Replace my data</button>
+        <input id="importInput" type="file" accept=".json,application/json" hidden>
+      </div>
+      <p class="hint" id="backupStatus" role="status"></p>
+    </details>
+
+    <p class="hint foot">Stored only on this device. <a id="openTab" href="#">Open in a tab</a></p>
+  </div>
+
+  <script src="shared/storage.js"></script>
+  <script src="shared/parse.js"></script>
+  <script src="shared/files.js"></script>
   <script src="popup.js"></script>
+  <script src="apply.js"></script>
 </body>
 </html>

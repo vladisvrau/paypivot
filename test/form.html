@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PayPivot helper test form</title>
+<!--
+  A sample application form for trying the page helper outside Chrome's extension system.
+  Serve the repository root locally and open test/form.html. A stand-in for the chrome.* APIs
+  below supplies a profile and one résumé; the real extension does not use this page.
+-->
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 16px; }
+  .row { margin-bottom: 14px; }
+  label, .q { display: block; font-weight: 600; margin-bottom: 4px; }
+  input, select, textarea { width: 100%; box-sizing: border-box; padding: 8px; font: inherit; }
+  .drop { border: 2px dashed #999; padding: 16px; text-align: center; border-radius: 8px; position: relative; }
+  .drop input { position: absolute; inset: 0; opacity: 0; }
+  #log { font: 12px monospace; white-space: pre-wrap; background: #f4f4f4; padding: 8px; }
+</style>
+</head>
+<body>
+<h1>Apply: Senior Engineer</h1>
+<form onsubmit="event.preventDefault()">
+  <div class="row"><label for="fn">First name *</label><input id="fn" name="job_application[first_name]"></div>
+  <div class="row"><label for="ln">Last name *</label><input id="ln" name="job_application[last_name]"></div>
+  <div class="row"><label for="em">Email *</label><input id="em" type="email" name="email"></div>
+  <div class="row"><label for="ph">Phone</label><input id="ph" type="tel"></div>
+  <div class="row"><div class="q">LinkedIn Profile</div><div><input name="urls[LinkedIn]"></div></div>
+  <div class="row"><label for="gh">GitHub URL</label><input id="gh"></div>
+  <div class="row"><label for="pf">Portfolio</label><input id="pf" placeholder="https://"></div>
+  <div class="row"><label for="ct">Country</label>
+    <select id="ct"><option value="">Select…</option><option value="br">Brazil</option><option value="pt">Portugal</option></select></div>
+  <div class="row"><label for="pw">Password</label><input id="pw" type="password"></div>
+  <div class="row"><label for="cpf">CPF</label><input id="cpf"></div>
+  <div class="row"><label for="pr">Pretensão salarial</label><input id="pr"></div>
+  <div class="row"><label for="why">Why do you want to work here?</label><textarea id="why"></textarea></div>
+  <div class="row"><div class="q">Resume/CV *</div>
+    <div class="drop">Drop your file here or click to upload<input type="file" id="resume" name="resume"></div></div>
+  <div class="row"><label for="cl">Cover letter</label><input type="file" id="cl" name="cover_letter"></div>
+  <button>Submit application</button>
+</form>
+<h2>Events</h2>
+<div id="log"></div>
+
+<script>
+  // Stand-in for the extension APIs the page helper uses.
+  const data = {
+    profile: {
+      firstName: 'Ada', lastName: 'Lovelace', email: 'ada@example.com', phone: '+44 20 0000 0000',
+      country: 'Brazil', linkedin: 'https://linkedin.com/in/ada', github: 'https://github.com/ada',
+      website: 'https://ada.example', salary: 'R$ 20.000 por mês',
+    },
+    files: { items: [{ id: 'f1', label: 'Résumé — English', name: 'ada-resume.pdf', type: 'application/pdf', size: 12 }], defaultId: 'f1' },
+  };
+  window.chrome = {
+    storage: {
+      local: { get: async (key) => ({ [key]: data[key] }), set: async () => {}, remove: async () => {} },
+      onChanged: { addListener() {} },
+    },
+    runtime: {
+      sendMessage: async (message) => (message.type === 'get-file'
+        ? { name: 'ada-resume.pdf', type: 'application/pdf', data: btoa('%PDF-1.4 test') }
+        : {}),
+    },
+  };
+  const log = (text) => { document.getElementById('log').textContent += `${text}\n`; };
+  document.addEventListener('change', (event) => {
+    const t = event.target;
+    log(`change #${t.id || t.name}: ${t.type === 'file' ? [...t.files].map((f) => `${f.name} (${f.size} B)`).join(', ') : t.value}`);
+  });
+</script>
+<script src="../shared/storage.js"></script>
+<script src="../content/helper.js"></script>
+</body>
+</html>

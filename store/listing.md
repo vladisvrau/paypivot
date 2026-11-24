@@ -68,15 +68,31 @@ https://github.com/vladisvrau/paypivot/issues
 
 **Single purpose**
 
-PayPivot converts a pay figure between pay periods (hourly, daily, weekly, monthly, yearly) and between currencies.
+PayPivot helps with job applications: it converts pay figures between pay periods and currencies, adds up total compensation, and fills application forms with the user's own saved details.
 
 **Justification for `storage`**
 
-Saves the user's last entered amount, chosen currencies, table layout, working-hours settings and cached exchange rates locally, so the popup reopens as they left it.
+Saves the user's calculator settings, profile, snippets and cached exchange rates locally, so the extension reopens as they left it.
+
+**Justification for `contextMenus`**
+
+Adds two right-click items: "Convert with PayPivot" for selected text, and "Insert snippet" for editable fields.
+
+**Justification for `activeTab`**
+
+When the user picks a right-click item, PayPivot reads the page's language (to tell which dollar a "$" means) and inserts the chosen snippet into the field they right-clicked. Nothing happens on a page until the user picks an item.
+
+**Justification for `scripting`**
+
+Used with activeTab to insert a snippet into the field the user right-clicked, and to register the optional application-form helper once the user turns it on.
 
 **Justification for host permission `https://api.frankfurter.dev/*`**
 
 Fetches daily currency exchange rates and the list of currency names from the Frankfurter API. The requests contain only currency codes. No user data is sent.
+
+**Justification for optional host permission `<all_urls>`**
+
+Requested only when the user turns on "Help me on application pages". It lets PayPivot show fill buttons on job application forms, on whichever site the employer uses. Fields are filled only when the user clicks a button; forms are never submitted, and password and payment fields are never touched. Turning the switch off gives the permission back.
 
 **Remote code**
 
@@ -84,7 +100,9 @@ No, I am not using remote code. All JavaScript is packaged in the extension. The
 
 **Data usage**
 
-Tick none of the data categories: PayPivot does not collect or transmit user data.
+> Check this section against the dashboard's own definitions before submitting version 2.0.
+
+PayPivot now handles personally identifiable information (name, email, phone, links) and files the user chooses to store, but keeps them on the user's device and never sends them to the developer or any server. They are only written into a web page's form when the user clicks one of PayPivot's buttons on that page. If the dashboard counts data as "collected" only when it leaves the device, tick none of the categories; if it counts local handling, tick **Personally identifiable information** and describe the local-only use.
 
 Certify all three statements:
 
@@ -94,7 +112,6 @@ Certify all three statements:
 
 **Privacy policy URL**
 
-Not required when no user data is collected. If the dashboard asks for one, the Privacy section of the README can serve:
 https://github.com/vladisvrau/paypivot#privacy
 
 ## Distribution tab

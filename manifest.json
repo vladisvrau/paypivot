@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "PayPivot — Salary & Currency Converter",
   "short_name": "PayPivot",
-  "version": "1.0.0",
-  "description": "Convert a salary between hourly, daily, weekly, monthly and yearly, and between currencies.",
+  "version": "2.0.0",
+  "description": "Convert salaries between pay periods and currencies, add up total compensation, and fill job applications faster.",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -18,6 +18,10 @@
       "32": "icons/icon32.png"
     }
   },
-  "permissions": ["storage"],
-  "host_permissions": ["https://api.frankfurter.dev/*"]
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "contextMenus", "activeTab", "scripting"],
+  "host_permissions": ["https://api.frankfurter.dev/*"],
+  "optional_host_permissions": ["<all_urls>"]
 }

@@ -2,7 +2,6 @@
 
 const API = 'https://api.frankfurter.dev/v1';
 const RATE_TTL_MS = 12 * 60 * 60 * 1000;
-const STORAGE_KEY = 'state2';
 const MAX_CURRENCIES = 4;
 
 // Layout widths in px. Chrome caps popups at 800px wide.
@@ -13,6 +12,7 @@ const ADD_W = 28;
 const GAP = 8;
 const BODY_PAD = 28;
 const MIN_BODY_W = 300;
+const APPLY_W = 420;
 const ANIM_MS = 320;
 
 const PERIODS = [
@@ -66,6 +66,14 @@ const DEFAULTS = {
   rateDate: '',
   ratesFetchedAt: 0,
   names: null, // code -> currency name, from the API
+  comp: {
+    cur: '',            // currency of the amounts below; follows the table
+    bonus: '', bonusType: 'amount',
+    equity: '', vest: 4,
+    signon: '', signonYears: 1,
+    benefits: '', pto: '', costs: '',
+  },
+  fromPage: null, // the figure last read from a page (not saved)
 };
 
 let state = structuredClone(DEFAULTS);
@@ -82,52 +90,20 @@ function el(tag, props = {}, ...children) {
   return node;
 }
 
-// ---------- storage (chrome.storage in the extension, localStorage otherwise) ----------
+// ---------- storage ----------
 
-const hasChromeStorage = typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local;
+const { store } = PayPivot;
+const { parseAmount } = PayPivot;
 
-async function loadState() {
-  try {
-    if (hasChromeStorage) return (await chrome.storage.local.get(STORAGE_KEY))[STORAGE_KEY];
-    return JSON.parse(localStorage.getItem(STORAGE_KEY));
-  } catch {
-    return null;
-  }
-}
+const loadState = () => store.get('calculator');
 
 function saveState() {
-  try {
-    if (hasChromeStorage) chrome.storage.local.set({ [STORAGE_KEY]: state });
-    else localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    /* storage unavailable: the calculator still works, it just won't remember */
-  }
+  // The figure read from a page is only shown while this popup is open.
+  const { fromPage, ...saved } = state;
+  store.set('calculator', saved);
 }
 
 // ---------- maths ----------
-
-/** Parses "50", "$50.00", "120,000", "120k", "1.2m", "1.234,56". Returns NaN if not a number. */
-function parseAmount(text) {
-  let s = String(text).toLowerCase().replace(/[^0-9.,km]/g, '');
-  const suffix = s.match(/[km]$/);
-  const scale = suffix ? (suffix[0] === 'k' ? 1e3 : 1e6) : 1;
-  s = s.replace(/[km]/g, '');
-  if (!s) return NaN;
-
-  const lastDot = s.lastIndexOf('.');
-  const lastComma = s.lastIndexOf(',');
-  if (lastDot >= 0 && lastComma >= 0) {
-    // Both present: whichever comes last is the decimal separator.
-    const [dec, thou] = lastDot > lastComma ? ['.', ','] : [',', '.'];
-    s = s.split(thou).join('').replace(dec, '.');
-  } else if (lastComma >= 0) {
-    s = /^\d{1,3}(,\d{3})+$/.test(s) ? s.replace(/,/g, '') : s.replace(',', '.');
-  } else if (s.indexOf('.') !== lastDot) {
-    s = s.replace(/\./g, '');
-  }
-  const n = Number(s);
-  return Number.isFinite(n) ? n * scale : NaN;
-}
 
 /** How many hourly rates fit in one unit of the period. */
 function multiplier(period) {
@@ -291,7 +267,6 @@ const keyedElements = () => [...document.querySelectorAll('[data-key]')];
  *   - new cells slide and fade in, removed cells slide and fade out.
  */
 function animatedRebuild() {
-  const { body } = document;
   const grid = $('grid');
 
   // Where everything is now (mid-animation positions included, so interruptions stay smooth).
@@ -300,11 +275,11 @@ function animatedRebuild() {
     const rect = node.getBoundingClientRect();
     if (rect.width > 0) before.set(node.dataset.key, { node, rect });
   }
-  const old = { w: body.offsetWidth, h: body.offsetHeight };
+  const old = bodySize();
   if (bodyAnimation) bodyAnimation.cancel();
 
   buildGrid();
-  const next = { w: body.offsetWidth, h: body.offsetHeight };
+  const next = bodySize();
   const horizontal = next.w !== old.w;
   const offset = horizontal ? 'translateX(-32px)' : 'translateY(-12px)';
 
@@ -339,11 +314,159 @@ function animatedRebuild() {
       .finished.then(() => node.remove(), () => node.remove());
   }
 
-  if (next.w !== old.w || next.h !== old.h) {
-    bodyAnimation = body.animate(
-      { width: [`${old.w}px`, `${next.w}px`], height: [`${old.h}px`, `${next.h}px`] },
-      ANIM,
-    );
+  animateBody(old, next);
+}
+
+const bodySize = () => ({ w: document.body.offsetWidth, h: document.body.offsetHeight });
+
+/**
+ * Animates the popup from an old size to its current one (the window follows the body).
+ * `then` runs when the animation ends or is replaced.
+ */
+function animateBody(old, next = bodySize(), then) {
+  const { body, documentElement: html } = document;
+  if (bodyAnimation) bodyAnimation.cancel();
+  bodyAnimation = null;
+  if (reducedMotion.matches || (next.w === old.w && next.h === old.h)) {
+    html.classList.remove('animating');
+    if (then) then();
+    return;
+  }
+  updateScrollbar(true); // the layout is already at its new size: fade the scrollbar alongside
+  html.classList.add('animating');
+  const animation = body.animate(
+    { width: [`${old.w}px`, `${next.w}px`], height: [`${old.h}px`, `${next.h}px`] },
+    ANIM,
+  );
+  bodyAnimation = animation;
+  const done = () => {
+    if (bodyAnimation === animation) {
+      bodyAnimation = null;
+      html.classList.remove('animating');
+      updateScrollbar();
+    }
+    if (then) then();
+  };
+  animation.finished.then(done, done);
+}
+
+// ---------- scrollbar ----------
+
+/**
+ * Fades the body's scrollbar in only while there is something to scroll (set by watchScrollbar).
+ * Animations call it with `now` at their start, while the layout is at its final size, so the fade
+ * runs alongside the resize; other calls are ignored until the resize ends.
+ */
+let updateScrollbar = () => {};
+
+/**
+ * The body scrolls once it reaches Chrome's 600px limit, inside a gutter that is always reserved
+ * (see popup.css). This measures the gutter, and marks the body .scrollable while it overflows.
+ * Mid-animation overflow doesn't count: the thumb fades from the start of a resize to where it ends.
+ */
+function watchScrollbar() {
+  const { body, documentElement: html } = document;
+  html.style.setProperty('--gutter', `${Math.max(0, body.offsetWidth - body.clientWidth)}px`);
+  updateScrollbar = (now = false) => {
+    if (!now && (html.classList.contains('animating') || body.querySelector('details.sliding'))) return;
+    body.classList.toggle('scrollable', body.scrollHeight > body.clientHeight + 1);
+  };
+  // The body stops resizing once it is capped, so watch what is inside it.
+  const observer = new ResizeObserver(() => updateScrollbar());
+  for (const child of body.children) if (child.tagName !== 'SCRIPT') observer.observe(child);
+  observer.observe(body);
+  addEventListener('resize', () => updateScrollbar());
+  updateScrollbar();
+}
+
+const groupAnimations = new WeakMap();
+
+/** Whether a group is open, or opening (a closing group is still [open] until it finishes). */
+const groupIsOpen = (details) => details.open && !details.classList.contains('closing');
+
+/**
+ * Opens or closes a collapsible group by sliding its own height. The popup follows the layout,
+ * and the slide stays visible even when the popup is at Chrome's maximum height and scrolls.
+ */
+function toggleGroup(details, open = !groupIsOpen(details)) {
+  if (groupIsOpen(details) === open) return;
+  const from = details.getBoundingClientRect().height; // mid-slide if one is running
+  const running = groupAnimations.get(details);
+  if (running) running.forEach((a) => a.cancel());
+  groupAnimations.delete(details);
+
+  // Let the body take its natural size, so the window follows the group frame by frame.
+  if (bodyAnimation) bodyAnimation.cancel();
+  bodyAnimation = null;
+  document.documentElement.classList.remove('animating');
+
+  details.classList.remove('closing', 'sliding');
+  details.open = open;
+  details.dispatchEvent(new CustomEvent('group-toggle', { detail: { open } }));
+  if (reducedMotion.matches) return;
+
+  const to = details.getBoundingClientRect().height;
+  updateScrollbar(true); // measured at the final size, so the fade starts with the slide
+  if (!open) {
+    details.open = true; // keep the content in place while it slides shut
+    details.classList.add('closing');
+  }
+  details.classList.add('sliding');
+  const content = [...details.children].filter((child) => child.tagName !== 'SUMMARY');
+  const animations = [
+    details.animate({ height: [`${from}px`, `${to}px`] }, ANIM),
+    ...content.map((child) => child.animate(
+      open ? { opacity: [0, 1], transform: ['translateY(-6px)', 'none'] }
+           : { opacity: [1, 0], transform: ['none', 'translateY(-6px)'] },
+      { ...ANIM, duration: open ? ANIM_MS : ANIM_MS * 0.6 },
+    )),
+  ];
+  groupAnimations.set(details, animations);
+  animations[0].finished.then(() => {
+    groupAnimations.delete(details);
+    details.classList.remove('sliding', 'closing');
+    if (!open) details.open = false;
+    updateScrollbar();
+  }, () => {});
+}
+
+// ---------- tabs ----------
+
+let ui = { tab: 'pay', open: {} };
+let payWidth = MIN_BODY_W;
+
+/** Sets the popup width for the tab that is showing. */
+function sizeBody() {
+  document.body.style.width = `${ui.tab === 'apply' ? APPLY_W : payWidth}px`;
+}
+
+function showTab(tab, animate = true) {
+  if (tab !== 'pay' && tab !== 'apply') tab = 'pay';
+  const old = bodySize();
+  ui.tab = tab;
+  for (const name of ['pay', 'apply']) {
+    $(`view-${name}`).hidden = name !== tab;
+    $(`tab-${name}`).setAttribute('aria-selected', String(name === tab));
+  }
+  sizeBody();
+  if (animate) {
+    animateBody(old);
+    if (!reducedMotion.matches) $(`view-${tab}`).animate({ opacity: [0, 1] }, ANIM);
+  }
+  store.set('ui', ui);
+}
+
+function wireGroups() {
+  for (const details of document.querySelectorAll('details.group')) {
+    if (ui.open[details.id]) details.open = true;
+    details.querySelector('summary').addEventListener('click', (event) => {
+      event.preventDefault();
+      toggleGroup(details);
+    });
+    details.addEventListener('group-toggle', (event) => {
+      ui.open[details.id] = event.detail.open;
+      store.set('ui', ui);
+    });
   }
 }
 
@@ -407,7 +530,9 @@ function buildGrid() {
     }
     width = LABEL_W + codes.length * (CUR_W + GAP) + (add ? ADD_W + GAP : 0);
   }
-  document.body.style.width = `${Math.max(MIN_BODY_W, width + BODY_PAD)}px`;
+  payWidth = Math.max(MIN_BODY_W, width + BODY_PAD);
+  sizeBody();
+  renderFromPage();
 
   $('flip').setAttribute('aria-pressed', String(state.transposed));
   $('convert').checked = state.convert;
@@ -453,6 +578,206 @@ function update(skip) {
   for (const id of Object.keys(SETTINGS)) {
     if ($(id) !== skip) $(id).value = state[id];
   }
+
+  renderComp(skip);
+}
+
+// ---------- total compensation ----------
+
+const COMP_FIELDS = {
+  'c-bonus': 'bonus', 'c-bonusType': 'bonusType', 'c-equity': 'equity', 'c-vest': 'vest',
+  'c-signon': 'signon', 'c-signonYears': 'signonYears', 'c-benefits': 'benefits',
+  'c-pto': 'pto', 'c-costs': 'costs',
+};
+
+const numberIn = (text) => {
+  const n = parseAmount(text);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/** Converts an amount between two currencies of the table, or null if a rate is missing. */
+function convertAmount(amount, from, to) {
+  if (!amount || from === to) return amount;
+  const rf = rateOf(from);
+  const rt = rateOf(to);
+  return rf && rt ? (amount / rf) * rt : null;
+}
+
+/** Hours actually worked in a year once paid time off is taken. */
+function hoursWorked() {
+  const { hoursPerWeek: h, daysPerWeek: d, weeksPerYear: w } = state;
+  const ptoWeeks = Math.min(numberIn(state.comp.pto) / d, w - 1);
+  return h * (w - Math.max(0, ptoWeeks));
+}
+
+/** Base, total and effective hourly pay in one currency, or null if it can't be worked out. */
+function compIn(code, hourly) {
+  const h = hourly(code);
+  if (h === null) return null;
+  const c = state.comp;
+  const base = h * multiplier('year');
+  const cash = (field) => convertAmount(numberIn(c[field]), c.cur, code);
+  const extras = {
+    bonus: c.bonusType === 'percent' ? (base * numberIn(c.bonus)) / 100 : cash('bonus'),
+    equity: cash('equity'),
+    signon: cash('signon'),
+    benefits: cash('benefits'),
+    costs: cash('costs'),
+  };
+  if (Object.values(extras).some((v) => v === null)) return null;
+  const total = base + extras.bonus + extras.benefits - extras.costs +
+    extras.equity / Math.max(1, numberIn(c.vest) || 4) +
+    extras.signon / Math.max(1, numberIn(c.signonYears) || 1);
+  return { base, total, hourly: total / hoursWorked() };
+}
+
+function renderComp(skip) {
+  const c = state.comp;
+  const codes = visibleCodes();
+  if (!codes.includes(c.cur)) c.cur = codes.includes(state.anchor.cur) ? state.anchor.cur : codes[0];
+
+  const select = $('c-cur');
+  if ([...select.options].map((o) => o.value).join() !== codes.join()) {
+    select.replaceChildren(...codes.map((code) => el('option', { value: code, textContent: code })));
+  }
+  select.value = c.cur;
+  for (const [id, key] of Object.entries(COMP_FIELDS)) {
+    if ($(id) !== skip) $(id).value = c[key];
+  }
+
+  const out = $('compOut');
+  const hourly = hourlyRates();
+  if (!Number.isFinite(parseAmount(state.anchor.text))) {
+    out.style.gridTemplateColumns = '1fr';
+    out.replaceChildren(el('div', { className: 'note', textContent: 'Type a pay figure above to see totals.' }));
+    return;
+  }
+  out.style.gridTemplateColumns = `96px repeat(${codes.length}, minmax(0, 1fr))`;
+  const results = codes.map((code) => compIn(code, hourly));
+  const value = (r, key) => el('div', { className: 'value', textContent: r ? fmt.format(r[key]) : '—' });
+  out.replaceChildren(
+    el('div'), ...codes.map((code) => el('div', { className: 'head', textContent: code })),
+    el('div', { className: 'label', textContent: 'Base / year' }), ...results.map((r) => value(r, 'base')),
+    el('div', { className: 'label', textContent: 'Total / year' }), ...results.map((r) => value(r, 'total')),
+    el('div', { className: 'label', textContent: 'Effective hourly' }), ...results.map((r) => value(r, 'hourly')),
+    el('div', {
+      className: 'note',
+      textContent: `Effective hourly is total pay over ${fmt.format(hoursWorked()).replace(/\.00$/, '')} hours worked a year` +
+        (numberIn(c.pto) ? `, after ${numberIn(c.pto)} days off.` : '.'),
+    }),
+  );
+}
+
+function wireComp() {
+  for (const [id, key] of Object.entries(COMP_FIELDS)) {
+    const input = $(id);
+    input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', () => {
+      state.comp[key] = input.value;
+      renderComp(input);
+      saveState();
+    });
+    input.addEventListener('blur', () => renderComp());
+  }
+  $('c-cur').addEventListener('change', () => {
+    state.comp.cur = $('c-cur').value;
+    renderComp();
+    saveState();
+  });
+  $('c-clear').addEventListener('click', () => {
+    state.comp = { ...structuredClone(DEFAULTS.comp), cur: state.comp.cur };
+    renderComp();
+    saveState();
+  });
+}
+
+// ---------- a figure read from a page ----------
+
+function renderFromPage() {
+  const box = $('fromPage');
+  const fp = state.fromPage;
+  box.hidden = !fp;
+  if (!fp) return;
+
+  const quoted = fp.text.length > 60 ? `${fp.text.slice(0, 57)}…` : fp.text;
+  const close = el('button', { type: 'button', textContent: '×', title: 'Dismiss' });
+  close.setAttribute('aria-label', 'Dismiss');
+  close.addEventListener('click', () => {
+    state.fromPage = null;
+    rebuild();
+  });
+
+  box.classList.toggle('error', Boolean(fp.error));
+  if (fp.error) {
+    box.replaceChildren(el('span', {}, 'No pay figure found in ', el('q', { textContent: quoted }), '.'),
+      el('span', { className: 'actions' }, close));
+    return;
+  }
+
+  const periodName = (PERIODS.find((p) => p.id === fp.period) || PERIODS[0]).label.toLowerCase();
+  const actions = el('span', { className: 'actions' });
+  if (fp.high !== fp.low) {
+    for (const [which, label] of [['low', 'Low'], ['mid', 'Mid'], ['high', 'High']]) {
+      const button = el('button', { type: 'button', textContent: label, title: `Use the ${label.toLowerCase()} end of the range` });
+      button.setAttribute('aria-pressed', String(fp.used === which));
+      button.addEventListener('click', () => useFromPage(which));
+      actions.append(button);
+    }
+  }
+  actions.append(close);
+  box.replaceChildren(
+    el('span', {}, el('q', { textContent: quoted }), ` → ${periodName} ${fp.cur}${fp.guessed ? ' (period guessed)' : ''}`),
+    actions,
+  );
+}
+
+function useFromPage(which) {
+  const fp = state.fromPage;
+  const amount = { low: fp.low, high: fp.high, mid: (fp.low + fp.high) / 2 }[which];
+  fp.used = which;
+  state.anchor = { period: fp.period, cur: fp.cur, text: String(+amount.toFixed(2)) };
+  renderFromPage();
+  update();
+  saveState();
+}
+
+/** Puts a figure sent from a page (right-click → Convert with PayPivot) into the calculator. */
+function applyPending(pending) {
+  if (!pending) return;
+  store.remove('pending');
+  if (typeof chrome !== 'undefined' && chrome.action) chrome.action.setBadgeText({ text: '' });
+  if (ui.tab !== 'pay') showTab('pay');
+
+  const result = pending.result;
+  if (!result) {
+    state.fromPage = { text: pending.text, error: true };
+    rebuild();
+    return;
+  }
+
+  const known = Object.keys(state.names || FALLBACK_NAMES).concat(PayPivot.KNOWN_CODES);
+  const cur = result.currency && known.includes(result.currency) ? result.currency : state.anchor.cur;
+  if (!state.codes.includes(cur)) {
+    if (state.codes.length < MAX_CURRENCIES) {
+      state.codes.push(cur);
+    } else {
+      const old = state.codes[state.codes.length - 1];
+      state.codes[state.codes.length - 1] = cur;
+      delete state.rates[old];
+      delete state.manual[old];
+    }
+  }
+  const shown = visibleCodes()[0];
+  if (!state.convert && result.currency && cur !== shown) state.convert = true;
+
+  state.anchor = { period: result.period, cur, text: String(result.amount) };
+  state.fromPage = {
+    text: pending.text, low: result.low, high: result.high, used: 'low',
+    period: result.period, cur, guessed: result.periodGuessed,
+  };
+  rateError = '';
+  rebuild();
+  saveState();
+  ensureRates();
 }
 
 // ---------- currencies ----------
@@ -599,20 +924,45 @@ function wireControls() {
 }
 
 async function init() {
-  const saved = await loadState();
+  const params = new URLSearchParams(location.search);
+  if (params.get('page')) document.body.classList.add('page');
+
+  const [saved, savedUi] = await Promise.all([loadState(), store.get('ui')]);
   if (saved && typeof saved === 'object' && Array.isArray(saved.codes) && saved.codes.length) {
-    state = { ...structuredClone(DEFAULTS), ...saved, anchor: { ...DEFAULTS.anchor, ...saved.anchor } };
+    state = {
+      ...structuredClone(DEFAULTS),
+      ...saved,
+      anchor: { ...DEFAULTS.anchor, ...saved.anchor },
+      comp: { ...DEFAULTS.comp, ...saved.comp },
+      fromPage: null,
+    };
   }
   if (!state.codes.includes(state.anchor.cur)) state.anchor.cur = base();
   if (state.ratesBase !== base()) resetRates();
+  if (savedUi && typeof savedUi === 'object') ui = { ...ui, ...savedUi, open: { ...savedUi.open } };
 
   wireControls();
+  wireComp();
+  watchScrollbar();
+  wireGroups();
+  $('tab-pay').addEventListener('click', () => showTab('pay'));
+  $('tab-apply').addEventListener('click', () => showTab('apply'));
+
   buildGrid();
-  const { period, cur } = state.anchor;
-  const first = amountInputs.find((i) => i.dataset.period === period && i.dataset.cur === cur) || amountInputs[0];
-  if (first) first.focus();
+  showTab(params.get('tab') || ui.tab, false);
+
+  applyPending(await store.get('pending'));
+  store.onChange('pending', applyPending);
+  if (typeof chrome !== 'undefined' && chrome.action) chrome.action.setBadgeText({ text: '' });
+
+  if (ui.tab === 'pay') {
+    const { period, cur } = state.anchor;
+    const first = amountInputs.find((i) => i.dataset.period === period && i.dataset.cur === cur) || amountInputs[0];
+    if (first) first.focus();
+  }
   ensureNames();
   ensureRates();
 }
 
-init();
+// apply.js waits for this before reading the shared `ui` preferences.
+const popupReady = init();
