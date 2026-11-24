@@ -58,11 +58,14 @@
       onChanged: { addListener() {} },
     },
     runtime: {
+      // Messages from the background, e.g. { type: 'helper-off' }: call window.sendToHelper(message).
+      onMessage: { addListener(listener) { (window.helperListeners ||= []).push(listener); } },
       sendMessage: async (message) => (message.type === 'get-file'
         ? { name: 'ada-resume.pdf', type: 'application/pdf', data: btoa('%PDF-1.4 test') }
         : {}),
     },
   };
+  window.sendToHelper = (message) => (window.helperListeners || []).forEach((listener) => listener(message));
   const log = (text) => { document.getElementById('log').textContent += `${text}\n`; };
   document.addEventListener('change', (event) => {
     const t = event.target;

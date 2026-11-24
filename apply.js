@@ -452,7 +452,7 @@
     $('helperHint').textContent = !hasChrome
       ? 'Available when PayPivot runs as an extension.'
       : on
-        ? 'On. Application forms show PayPivot buttons on fields it can fill. Reload pages that were already open.'
+        ? 'On. Application forms show PayPivot buttons on fields it can fill, including pages that are already open.'
         : 'Adds buttons that fill application forms with your profile and résumé. Chrome will ask for access to all sites.';
   }
 

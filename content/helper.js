@@ -2,7 +2,8 @@
 
 // Page helper: shows PayPivot buttons on application-form fields it can fill from the profile,
 // attaches stored résumés to upload fields, and offers "Fill with PayPivot" for the whole form.
-// Registered on all sites only after the user turns it on in the popup (see background.js).
+// Registered on all sites only after the user turns it on in the popup (see background.js), which
+// also starts it in tabs that are already open, and stops it there when the switch is turned off.
 // It never fills anything without a click, never submits, and skips passwords and payment fields.
 
 (() => {
@@ -503,21 +504,43 @@
     }, 400);
   }
 
+  let observer = null;
+  let stopped = false;
+  const closeMenuOutside = (event) => {
+    if (menu && !event.composedPath().includes(menu)) closeMenu();
+  };
+  const closeMenuOnEscape = (event) => {
+    if (event.key === 'Escape') closeMenu();
+  };
+
   function start() {
+    if (stopped) return;
     scan();
-    new MutationObserver((records) => {
+    observer = new MutationObserver((records) => {
       if (records.every((r) => host.contains(r.target) || r.target === host)) return;
       queueScan();
-    }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['type', 'disabled', 'readonly', 'style', 'class', 'hidden'] });
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ['type', 'disabled', 'readonly', 'style', 'class', 'hidden'] });
     document.addEventListener('input', queueScan, true);
     addEventListener('scroll', queuePosition, true);
     addEventListener('resize', queuePosition);
-    document.addEventListener('mousedown', (event) => {
-      if (menu && !event.composedPath().includes(menu)) closeMenu();
-    }, true);
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') closeMenu();
-    }, true);
+    document.addEventListener('mousedown', closeMenuOutside, true);
+    document.addEventListener('keydown', closeMenuOnEscape, true);
+  }
+
+  /** Removes every trace from the page when the switch is turned off; it can be started again later. */
+  function stop() {
+    if (stopped) return;
+    stopped = true;
+    if (observer) observer.disconnect();
+    clearTimeout(scanTimer);
+    document.removeEventListener('input', queueScan, true);
+    removeEventListener('scroll', queuePosition, true);
+    removeEventListener('resize', queuePosition);
+    document.removeEventListener('mousedown', closeMenuOutside, true);
+    document.removeEventListener('keydown', closeMenuOnEscape, true);
+    host.remove();
+    window.__payPivotHelper = false;
   }
 
   async function load() {
@@ -527,8 +550,16 @@
     if (!fileList.items.some((f) => f.id === fileList.defaultId)) fileList.defaultId = (fileList.items[0] || {}).id || '';
   }
 
-  store.onChange('profile', () => load().then(scan));
-  store.onChange('files', () => load().then(scan));
+  const reload = () => {
+    if (!stopped) load().then(() => { if (!stopped) scan(); });
+  };
+  store.onChange('profile', reload);
+  store.onChange('files', reload);
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message && message.type === 'helper-off') stop();
+    });
+  }
 
   load().then(start);
 })();

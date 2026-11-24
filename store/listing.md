@@ -91,7 +91,7 @@ When the user picks a right-click item, PayPivot reads the page's language (to t
 
 **Justification for `scripting`**
 
-Used with activeTab to insert a snippet into the field the user right-clicked, and to register the optional application-form helper once the user turns it on.
+Used with activeTab to insert a snippet into the field the user right-clicked. When the user turns on the optional application-form helper, it registers the helper for pages they open and starts it in tabs that are already open, so the page they are on works without a reload.
 
 **Justification for host permission `https://api.frankfurter.dev/*`**
 

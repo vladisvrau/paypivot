@@ -13,6 +13,7 @@ const MENU = {
   noSnippets: 'snippets-empty',
 };
 const HELPER_SCRIPT_ID = 'paypivot-helper';
+const HELPER_FILES = ['shared/storage.js', 'content/helper.js'];
 const ALL_SITES = { origins: ['<all_urls>'] };
 
 // ---------- menus ----------
@@ -130,21 +131,52 @@ function insertIntoFocusedField(text) {
 
 // ---------- page helper ----------
 
-/** Registers the page helper when all-sites access is granted, and removes it when it isn't. */
-async function syncHelper() {
+let helperQueue = Promise.resolve();
+
+/**
+ * Registers the page helper when all-sites access is granted, and removes it when it isn't.
+ * Calls are queued: the popup's message and Chrome's permission event both arrive for one switch.
+ */
+function syncHelper() {
+  helperQueue = helperQueue.then(syncHelperNow, syncHelperNow);
+  return helperQueue;
+}
+
+async function syncHelperNow() {
   const granted = await chrome.permissions.contains(ALL_SITES);
   const registered = await chrome.scripting.getRegisteredContentScripts({ ids: [HELPER_SCRIPT_ID] });
   if (granted && registered.length === 0) {
     await chrome.scripting.registerContentScripts([{
       id: HELPER_SCRIPT_ID,
       matches: ['<all_urls>'],
-      js: ['shared/storage.js', 'content/helper.js'],
+      js: HELPER_FILES,
       allFrames: true,
       runAt: 'document_idle',
       persistAcrossSessions: true,
     }]);
+    await startInOpenTabs();
   } else if (!granted && registered.length > 0) {
     await chrome.scripting.unregisterContentScripts({ ids: [HELPER_SCRIPT_ID] });
+    await stopInOpenTabs();
+  }
+}
+
+/** Registered scripts only reach pages loaded from now on, so start the helper in open tabs too. */
+async function startInOpenTabs() {
+  const tabs = await chrome.tabs.query({});
+  await Promise.all(tabs
+    .filter((tab) => tab.id !== undefined && !tab.discarded && /^(https?|file):/.test(tab.url || ''))
+    .map((tab) => chrome.scripting.executeScript({
+      target: { tabId: tab.id, allFrames: true },
+      files: HELPER_FILES,
+    }).catch(() => {}))); // protected pages, or frames that went away
+}
+
+/** Tells the helper in open tabs to remove its buttons (it can't be reached by script any more). */
+async function stopInOpenTabs() {
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id !== undefined) chrome.tabs.sendMessage(tab.id, { type: 'helper-off' }).catch(() => {});
   }
 }
 

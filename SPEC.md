@@ -122,7 +122,7 @@ Free-form, reusable text: a short bio, "why I'm looking", a cover letter opening
 
 ### Turning it on
 
-The page helper is **off by default**. A switch in the Apply tab, "Help me on application pages", asks Chrome for permission to read and change all sites (shown by Chrome as a separate prompt). Turning it off removes the permission. Without it, everything in parts 1–8 still works.
+The page helper is **off by default**. A switch in the Apply tab, "Help me on application pages", asks Chrome for permission to read and change all sites (shown by Chrome as a separate prompt). The helper starts straight away, in tabs that are already open as well as new ones, so an application page you're on gets its buttons without a reload. Turning it off removes the permission and the buttons from open tabs. Pages Chrome protects (such as `chrome://` pages and the Web Store) and tabs Chrome has put to sleep are skipped; a sleeping tab gets the helper when it reloads. Without the helper, everything in parts 1–8 still works.
 
 ### Field detection
 
